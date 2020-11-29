@@ -179,7 +179,7 @@ class DNN(Layer):
 
         super(DNN, self).build(input_shape)  # Be sure to call this somewhere!
 
-    def call(self, inputs, training=None, **kwargs):
+    def call(self, inputs, training=None, **kwargs): # 可以直接使用tensorflow中现成的API，大佬这里是为了更自由的写？？
 
         deep_input = inputs
 
