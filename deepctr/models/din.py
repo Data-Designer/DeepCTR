@@ -46,7 +46,7 @@ def DIN(dnn_feature_columns, history_feature_list, dnn_use_bn=False,
     dense_feature_columns = list(
         filter(lambda x: isinstance(x, DenseFeat), dnn_feature_columns)) if dnn_feature_columns else []
     varlen_sparse_feature_columns = list(
-        filter(lambda x: isinstance(x, VarLenSparseFeat), dnn_feature_columns)) if dnn_feature_columns else []
+        filter(lambda x: isinstance(x, VarLenSparseFeat), dnn_feature_columns)) if dnn_feature_columns else []  # 特征分类
 
     history_feature_columns = []
     sparse_varlen_feature_columns = []
@@ -60,10 +60,10 @@ def DIN(dnn_feature_columns, history_feature_list, dnn_use_bn=False,
 
     inputs_list = list(features.values())
 
-    embedding_dict = create_embedding_matrix(dnn_feature_columns, l2_reg_embedding, seed, prefix="")
+    embedding_dict = create_embedding_matrix(dnn_feature_columns, l2_reg_embedding, seed, prefix="") # 为每个特征做embedding
 
     query_emb_list = embedding_lookup(embedding_dict, features, sparse_feature_columns, history_feature_list,
-                                      history_feature_list, to_list=True)
+                                      history_feature_list, to_list=True) # 根据列表查找特征id的embedding
     keys_emb_list = embedding_lookup(embedding_dict, features, history_feature_columns, history_fc_names,
                                      history_fc_names, to_list=True)
     dnn_input_emb_list = embedding_lookup(embedding_dict, features, sparse_feature_columns,
@@ -72,25 +72,25 @@ def DIN(dnn_feature_columns, history_feature_list, dnn_use_bn=False,
 
     sequence_embed_dict = varlen_embedding_lookup(embedding_dict, features, sparse_varlen_feature_columns)
     sequence_embed_list = get_varlen_pooling_list(sequence_embed_dict, features, sparse_varlen_feature_columns,
-                                                  to_list=True)
+                                                  to_list=True) # 变长变为定长
 
-    dnn_input_emb_list += sequence_embed_list
+    dnn_input_emb_list += sequence_embed_list  # 合并列表
 
-    keys_emb = concat_func(keys_emb_list, mask=True)
+    keys_emb = concat_func(keys_emb_list, mask=True) # Goods对应的列表都concat起来，
     deep_input_emb = concat_func(dnn_input_emb_list)
     query_emb = concat_func(query_emb_list, mask=True)
     hist = AttentionSequencePoolingLayer(att_hidden_size, att_activation,
                                          weight_normalization=att_weight_normalization, supports_masking=True)([
-        query_emb, keys_emb])
+        query_emb, keys_emb]) # 根据Ads和Goods的embedding计算Attention
 
     deep_input_emb = tf.keras.layers.Concatenate()([NoMask()(deep_input_emb), hist])
     deep_input_emb = tf.keras.layers.Flatten()(deep_input_emb)
     dnn_input = combined_dnn_input([deep_input_emb], dense_value_list)
-    output = DNN(dnn_hidden_units, dnn_activation, l2_reg_dnn, dnn_dropout, dnn_use_bn, seed=seed)(dnn_input)
+    output = DNN(dnn_hidden_units, dnn_activation, l2_reg_dnn, dnn_dropout, dnn_use_bn, seed=seed)(dnn_input) # 喂入一个Dnn
     final_logit = tf.keras.layers.Dense(1, use_bias=False,
                                         kernel_initializer=tf.keras.initializers.glorot_normal(seed))(output)
 
     output = PredictionLayer(task)(final_logit)
 
-    model = tf.keras.models.Model(inputs=inputs_list, outputs=output)
+    model = tf.keras.models.Model(inputs=inputs_list, outputs=output) # 这里写法真不一样，这里直接用Model而不是层返回，有可能为了封装方便。
     return model
